@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "SweetDialer",
+  "version": "1.0.2",
+  "description": "SugarCRM/SuiteCRM click-to-call dialer. Auto-detects contacts and logs call activity.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/index.php*",
+        "*://*/legacy/index.php*",
+        "*://*/suitecrm/index.php*",
+        "*://*/legacy/*",
+        "*://*/*record=*"
+      ],
+      "js": [
+        "content/dialer-ui.js",
+        "content/content.js"
+      ],
+      "css": [
+        "content/styles.css"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "SweetDialer"
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/dialer-ui.js",
+        "content/styles.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

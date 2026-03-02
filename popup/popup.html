@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 320px; padding: 16px; font-family: system-ui, sans-serif; background: #f5f5f5; }
+    .header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .header h1 { font-size: 18px; }
+    .card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .contact-type { font-size: 12px; color: #666; text-transform: uppercase; }
+    .contact-name { font-size: 20px; font-weight: 600; margin: 4px 0 16px; }
+    #phoneList { margin-bottom: 16px; }
+    .btn-call { 
+      width: 100%; 
+      padding: 14px; 
+      font-size: 16px; 
+      font-weight: 600;
+      background: #28a745; 
+      color: white; 
+      border: none; 
+      border-radius: 8px; 
+      cursor: pointer;
+    }
+    .btn-call:disabled { background: #6c757d; cursor: not-allowed; }
+    .btn-call:hover:not(:disabled) { background: #218838; }
+    #callStatus { text-align: center; margin-top: 8px; font-size: 13px; min-height: 20px; }
+    #pageStatus { text-align: center; padding: 20px; color: #666; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span style="font-size:24px">🍬</span>
+    <h1>SweetDialer</h1>
+  </div>
+  
+  <div id="pageStatus">Loading...</div>
+  
+  <div id="contactCard" class="card hidden">
+    <div class="contact-type" id="contactType">Contact</div>
+    <div class="contact-name" id="contactName"></div>
+    
+    <div id="phoneList"></div>
+    
+    <button id="callBtn" class="btn-call" disabled>📞 Call</button>
+    <div id="callStatus"></div>
+  </div>
+  
+  <div id="notCrmMessage" class="hidden" style="text-align:center;padding:20px;color:#666">
+    Not on a SuiteCRM contact page
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

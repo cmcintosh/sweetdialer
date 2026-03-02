@@ -1,0 +1,191 @@
+/**
+ * SuiteCRM Dialer - Content Script (FIXED VERSION)
+ * Isolated execution to prevent conflicts with SugarCRM
+ */
+
+(function() {
+  'use strict';
+
+  // Prevent multiple injections
+  if (window.suitecrmDialerInjected) {
+    return;
+  }
+  window.suitecrmDialerInjected = true;
+
+  // Use a unique namespace
+  const DIALER_NS = 'sweetdialer';
+
+  console.log('[SweetDialer] Content script loaded - isolated mode');
+
+  // Wait for page to fully load
+  function waitForStableState(callback, maxAttempts = 30) {
+    let attempts = 0;
+    const check = () => {
+      attempts++;
+      // Wait for CRM to be ready by checking for key elements
+      const hasCrmContent = document.querySelector('.module-title, .record-view, #content') !== null;
+      const isStable = document.readyState === 'complete' && hasCrmContent;
+      
+      if (isStable || attempts >= maxAttempts) {
+        console.log('[SweetDialer] Page stable or timeout, attempts:', attempts);
+        setTimeout(callback, 500); // Extra delay for CRM stabilization
+      } else {
+        setTimeout(check, 200);
+      }
+    };
+    check();
+  }
+
+  // Safe element query that doesn't interfere
+  function safeQuery(selector) {
+    try {
+      return document.querySelector(selector);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Safe DOM manipulation
+  function safeCreateWidget(container) {
+    if (!container || !document.body) return null;
+    
+    try {
+      // Don't modify existing elements - create separate container
+      const widgetId = \`\${DIALER_NS}-widget-container\`;
+      const existing = document.getElementById(widgetId);
+      if (existing) existing.remove();
+      
+      const wrapper = document.createElement('div');
+      wrapper.id = widgetId;
+      wrapper.style.all = 'initial'; // Reset all styles
+      wrapper.style.position = 'fixed';
+      wrapper.style.zIndex = '2147483647'; // Max z-index
+      wrapper.style.pointerEvents = 'none'; // Pass-through clicks by default
+      wrapper.style.isolation = 'isolate'; // Create stacking context
+      
+      const shadow = wrapper.attachShadow({ mode: 'closed' });
+      widgetContainer = document.createElement('div');
+      widgetContainer.style.cssText = container;
+      shadow.appendChild(widgetContainer);
+      
+      document.body.appendChild(wrapper);
+      return wrapper;
+    } catch (e) {
+      console.error('[SweetDialer] Widget creation failed:', e);
+      return null;
+    }
+  }
+
+  // Detect if we're on a record view without heavy DOM scanning
+  function detectRecordContext() {
+    try {
+      const url = window.location.href;
+      const hash = window.location.hash;
+      
+      // Check URL patterns
+      const recordMatch = url.match(/record=([a-f0-9\-]{36})/i);
+      const moduleMatch = url.match(/module=(Leads|Contacts|Accounts)/i) || 
+                         url.match(/\/(Leads|Contacts|Accounts)\/([a-f0-9\-]{36})/i);
+      
+      if (recordMatch) {
+        return {
+          valid: true,
+          recordId: recordMatch[1],
+          module: moduleMatch ? moduleMatch[1] : 'Unknown'
+        };
+      }
+      
+      return { valid: false };
+    } catch (e) {
+      console.error('[SweetDialer] Detection error:', e);
+      return { valid: false };
+    }
+  }
+
+  // Extract phone safely
+  function extractPhones() {
+    const phones = [];
+    try {
+      // Use very specific, safe selectors
+      const phoneSelectors = [
+        'a[href^="tel:"]',
+        '[data-field-name*="phone"]',
+        '.phone-field',
+        '.phone'
+      ];
+      
+      phoneSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => {
+            const text = el.textContent || el.href || '';
+            const match = text.match(/[\d\-\(\)\s\.\+]{10,}/);
+            if (match) {
+              phones.push({
+                number: match[0].replace(/\s/g, ''),
+                label: 'Phone'
+              });
+            }
+          });
+        } catch (e) {}
+      });
+    } catch (e) {
+      console.error('[SweetDialer] Phone extraction error:', e);
+    }
+    return [...new Map(phones.map(p => [p.number, p])).values()]; // Deduplicate
+  }
+
+  // Initialize - much safer approach
+  function init() {
+    console.log('[SweetDialer] Initializing...');
+    
+    const context = detectRecordContext();
+    if (!context.valid) {
+      console.log('[SweetDialer] Not on a record page');
+      return;
+    }
+
+    console.log('[SweetDialer] On record page:', context);
+
+    // Wait for stable state before proceeding
+    waitForStableState(() => {
+      const phones = extractPhones();
+      console.log('[SweetDialer] Found phones:', phones.length, phones);
+      
+      if (phones.length > 0 && typeof SweetDialerUI !== 'undefined') {
+        SweetDialerUI.createWidget({
+          module: context.module,
+          recordId: context.recordId,
+          phoneNumbers: phones,
+          name: ''
+        });
+      }
+    });
+  }
+
+  // Listen for navigation
+  let lastUrl = location.href;
+  setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      console.log('[SweetDialer] URL changed');
+      setTimeout(init, 1000);
+    }
+  }, 500);
+
+  // Initial load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Listen for messages from extension
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'getPhones') {
+      sendResponse({ phones: extractPhones() });
+      return true;
+    }
+    return false;
+  });
+
+})();
