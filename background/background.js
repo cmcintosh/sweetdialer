@@ -52,7 +52,13 @@ async function makeTwilioCall(phoneNumber, sendResponse) {
       toNumber = '+1' + toNumber.replace(/\D/g, '');
     }
 
-    const fromNumber = settings.twilioFromNumber;
+    const fromNumber = settings.twilioFromNumber || settings.twilioPhoneNumber;
+
+    if (!fromNumber) {
+      console.error("[SweetDialer] From number not set");
+      sendResponse({ success: false, error: "Twilio From number not configured" });
+      return;
+    }
 
     console.log('[SweetDialer] From:', fromNumber, 'To:', toNumber);
 
