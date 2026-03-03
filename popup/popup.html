@@ -7,10 +7,18 @@
     body { width: 320px; padding: 16px; font-family: system-ui, sans-serif; background: #f5f5f5; }
     .header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
     .header h1 { font-size: 18px; }
-    .card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px; }
     .contact-type { font-size: 12px; color: #666; text-transform: uppercase; }
     .contact-name { font-size: 20px; font-weight: 600; margin: 4px 0 16px; }
     #phoneList { margin-bottom: 16px; }
+    .phone-option { 
+      padding: 12px; 
+      background: #f5f5f5; 
+      border-radius: 6px; 
+      margin-bottom: 8px; 
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
     .btn-call { 
       width: 100%; 
       padding: 14px; 
@@ -27,6 +35,28 @@
     #callStatus { text-align: center; margin-top: 8px; font-size: 13px; min-height: 20px; }
     #pageStatus { text-align: center; padding: 20px; color: #666; }
     .hidden { display: none !important; }
+    h3 { font-size: 14px; color: #666; margin: 16px 0 8px; }
+    textarea { 
+      width: 100%; 
+      min-height: 80px; 
+      padding: 10px; 
+      border: 1px solid #ddd; 
+      border-radius: 6px; 
+      resize: vertical;
+      margin-bottom: 8px;
+    }
+    .btn-save { 
+      width: 100%; 
+      padding: 12px; 
+      font-size: 14px;
+      background: #6c757d; 
+      color: white; 
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer;
+    }
+    .btn-save:disabled { opacity: 0.6; }
+    .btn-save:hover:not(:disabled) { background: #5a6268; }
   </style>
 </head>
 <body>
@@ -47,7 +77,13 @@
     <div id="callStatus"></div>
   </div>
   
-  <div id="notCrmMessage" class="hidden" style="text-align:center;padding:20px;color:#666">
+  <div id="notesCard" class="card hidden">
+    <h3>📝 Call Notes</h3>
+    <textarea id="callNotes" placeholder="Enter notes about this call..."></textarea>
+    <button id="saveNotesBtn" class="btn-save">Save to SuiteCRM</button>
+  </div>
+  
+  <div id="notCrmMessage" class="hidden" style="text-align:center;padding:20px;color:#666;background:white;border-radius:8px;">
     Not on a SuiteCRM contact page
   </div>
   

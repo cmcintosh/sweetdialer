@@ -1,4 +1,7 @@
-/* SweetDialer - Working Dialer */
+/**
+ * SweetDialer Popup - Twilio Version
+ * Calls go through Twilio API
+ */
 
 let selectedPhone = '';
 let currentContact = null;
@@ -10,7 +13,7 @@ function log(msg) {
 
 // Wait for DOM
 window.addEventListener('DOMContentLoaded', () => {
-  log('=== Loading ===');
+  log('=== Loading popup ===');
   
   // Get elements
   const els = {
@@ -22,9 +25,9 @@ window.addEventListener('DOMContentLoaded', () => {
     phones: document.getElementById('phoneList'),
     callBtn: document.getElementById('callBtn'),
     callStatus: document.getElementById('callStatus'),
+    notes: document.getElementById('callNotes'),
+    saveBtn: document.getElementById('saveNotesBtn')
   };
-  
-  log('Elements found');
   
   // Get current tab
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
@@ -35,12 +38,12 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // Check if SuiteCRM
     if (!url.match(/#\/(contacts|leads)\/record\//i)) {
-      els.status.textContent = 'Not SuiteCRM';
+      els.status.textContent = 'Not on SuiteCRM page';
       els.error.classList.remove('hidden');
       return;
     }
     
-    // Extract contact info via script injection
+    // Extract contact info
     chrome.scripting.executeScript({
       target: {tabId: tab.id},
       func: () => {
@@ -51,12 +54,10 @@ window.addEventListener('DOMContentLoaded', () => {
         const type = match[1][0].toUpperCase() + match[1].slice(1);
         const id = match[2];
         
-        // Get name
         let name = 'Unknown';
         const h1 = document.querySelector('h1');
         if (h1) name = h1.textContent.trim();
         
-        // Get phones
         const phones = [];
         document.querySelectorAll('a[href^="tel:"]').forEach(a => {
           const n = a.href.replace('tel:', '').trim();
@@ -69,12 +70,12 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = results && results[0] && results[0].result;
       
       if (!data) {
-        els.status.textContent = 'No contact found';
+        els.status.textContent = 'No contact data found';
         return;
       }
       
       currentContact = data;
-      log('Contact: ' + JSON.stringify(data));
+      log('Contact loaded: ' + data.name);
       
       // Show contact
       els.status.textContent = 'Ready';
@@ -87,15 +88,10 @@ window.addEventListener('DOMContentLoaded', () => {
         els.phones.innerHTML = '<p style="color:#999">No phones found</p>';
         els.callBtn.disabled = true;
       } else {
-        els.phones.innerHTML = data.phones.map((num, i) => `
-          <div class="phone-option" data-num="${num}" style="
-            padding: 12px;
-            background: #f5f5f5;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            border: 2px solid transparent;
-          ">
+        els.phones.innerHTML = data.phones.map((num) => `
+          <div class="phone-option" data-num="${num}"
+               style="padding:12px;background:#f5f5f5;border-radius:6px;margin-bottom:8px;cursor:pointer;border:2px solid transparent;"
+          >
             <span style="font-family:monospace;font-size:16px;font-weight:600">${num}</span>
           </div>
         `).join('');
@@ -112,40 +108,106 @@ window.addEventListener('DOMContentLoaded', () => {
         els.phones.querySelectorAll('.phone-option').forEach(el => {
           el.onclick = function() {
             selectedPhone = this.dataset.num;
-            // Reset all
             els.phones.querySelectorAll('.phone-option').forEach(e => {
               e.style.borderColor = 'transparent';
               e.style.background = '#f5f5f5';
             });
-            // Highlight selected
             this.style.borderColor = '#28a745';
             this.style.background = '#d4edda';
             els.callBtn.disabled = false;
-            log('Selected: ' + selectedPhone);
+            els.callStatus.textContent = '';
           };
         });
         
         els.callBtn.disabled = false;
       }
       
-      // Call button - SIMPLE
+      // CALL BUTTON - TWILIO VERSION
       els.callBtn.onclick = function() {
-        log('CALL CLICKED - Number: ' + selectedPhone);
+        log('Call button clicked, number: ' + selectedPhone);
         
         if (!selectedPhone) {
-          els.callStatus.textContent = 'Select a phone number';
+          els.callStatus.textContent = 'Select a phone number first';
+          els.callStatus.style.color = '#dc3545';
           return;
         }
         
-        // Direct window.open
-        const telUrl = 'tel:' + selectedPhone;
-        log('Opening: ' + telUrl);
-        
-        window.open(telUrl, '_blank');
-        
-        els.callStatus.textContent = 'Calling ' + selectedPhone + '...';
-        els.callStatus.style.color = '#28a745';
+        // Check if Twilio is configured
+        chrome.storage.sync.get(['twilioAccountSid'], (result) => {
+          if (!result.twilioAccountSid) {
+            els.callStatus.textContent = '⚠️ Twilio not configured - go to Settings';
+            els.callStatus.style.color = '#ffc107';
+            return;
+          }
+          
+          // Call via Twilio
+          els.callBtn.disabled = true;
+          els.callBtn.textContent = 'Calling...';
+          els.callStatus.textContent = 'Connecting via Twilio...';
+          els.callStatus.style.color = '#007bff';
+          
+          chrome.runtime.sendMessage({
+            action: 'makeTwilioCall',
+            phoneNumber: selectedPhone
+          }, (response) => {
+            els.callBtn.disabled = false;
+            els.callBtn.textContent = '📞 Call';
+            
+            if (response && response.success) {
+              log('Call initiated: ' + response.callSid);
+              els.callStatus.textContent = '✓ Calling ' + selectedPhone;
+              els.callStatus.style.color = '#28a745';
+            } else {
+              log('Call failed: ' + (response?.error || 'Unknown error'));
+              els.callStatus.textContent = '✗ ' + (response?.error || 'Failed');
+              els.callStatus.style.color = '#dc3545';
+            }
+          });
+        });
       };
+      
+      // SAVE NOTES BUTTON
+      if (els.saveBtn) {
+        els.saveBtn.onclick = function() {
+          const notes = els.notes?.value?.trim();
+          
+          if (!notes) {
+            els.callStatus.textContent = 'Enter notes first';
+            return;
+          }
+          
+          if (!currentContact || !currentContact.id) {
+            els.callStatus.textContent = 'No contact data';
+            return;
+          }
+          
+          els.saveBtn.disabled = true;
+          els.saveBtn.textContent = 'Saving...';
+          
+          chrome.runtime.sendMessage({
+            action: 'saveNotes',
+            notes: notes,
+            recordId: currentContact.id,
+            module: currentContact.type,
+            phoneNumber: selectedPhone
+          }, (response) => {
+            els.saveBtn.disabled = false;
+            
+            if (response && response.success) {
+              els.saveBtn.textContent = '✓ Saved!';
+              els.notes.value = '';
+              setTimeout(() => {
+                els.saveBtn.textContent = 'Save to SuiteCRM';
+              }, 2000);
+            } else {
+              els.saveBtn.textContent = '✗ Failed: ' + (response?.error?.substring(0, 50) || '');
+              setTimeout(() => {
+                els.saveBtn.textContent = 'Save to SuiteCRM';
+              }, 3000);
+            }
+          });
+        };
+      }
     });
   });
 });
