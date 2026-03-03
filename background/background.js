@@ -33,7 +33,7 @@ async function makeTwilioCall(phoneNumber, sendResponse) {
     const settings = await chrome.storage.sync.get([
       'twilioAccountSid',
       'twilioAuthToken',
-      'twilioPhoneNumber'
+      'twilioFromNumber'
     ]);
 
     if (!settings.twilioAccountSid || !settings.twilioAuthToken) {
@@ -52,7 +52,7 @@ async function makeTwilioCall(phoneNumber, sendResponse) {
       toNumber = '+1' + toNumber.replace(/\D/g, '');
     }
 
-    const fromNumber = settings.twilioPhoneNumber;
+    const fromNumber = settings.twilioFromNumber;
 
     console.log('[SweetDialer] From:', fromNumber, 'To:', toNumber);
 
